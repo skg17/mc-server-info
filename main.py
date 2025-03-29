@@ -75,7 +75,7 @@ def landing():
                 if hasattr(status, "favicon") and status.favicon
                 else None
             )
-            
+
             motd = status.description.get("text", "") if isinstance(status.description, dict) else str(status.description)
 
             results.append({
@@ -84,28 +84,33 @@ def landing():
                 "motd": motd,
                 "icon": icon_data,
                 "players": f"{status.players.online}/{status.players.max}",
-                "latency": round(status.latency, 2)
+                "latency": round(status.latency, 2),
+                "player_list": [p.name for p in status.players.sample] if status.players.sample else []
             })
         except Exception as e:
             results.append({
                 "name": name,
                 "online": False,
-                "error": str(e)
+                "error": str(e),
+                "player_list": []
             })
 
     # HTML rendering
     html_template = """
     <html style="font-family: system-ui; background: #1e1e2e; color: #fff; padding: 2em;">
         <h2>Minecraft Server Dashboard</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-        {% for s in servers %}
-            <div style="background: #2a2a3c; border-radius: 1rem; padding: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem;">
+            {% for s in servers %}
+            <div style="background: #2a2a3c; border-radius: 1rem; padding: 1rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                
+                <!-- Left Info -->
+                <div style="flex: 1;">
                 {% if s.icon %}
                     <img src="data:image/png;base64,{{ s.icon }}" width="48" height="48">
                 {% endif %}
-                <h3>{{ s.name }} {% if s.online %}🟢{% else %}🔴{% endif %}</h3>
+                <h3 style="margin: 0;">{{ s.name }} {% if s.online %}🟢{% else %}🔴{% endif %}</h3>
                 {% if s.online %}
-                    <p><strong>MOTD:</strong> {{ s.motd }}</p>
+                    <p style="margin: 0.5em 0;"><strong>MOTD:</strong> {{ s.motd }}</p>
                     <p><strong>Players:</strong> {{ s.players }}</p>
                     <p><strong>Ping:</strong> {{ s.latency }} ms</p>
                     <p><a href="/status?server={{ s.name }}" style="color: #80dfff;">View JSON →</a></p>
@@ -113,10 +118,24 @@ def landing():
                     <p style="color: red;">Offline</p>
                     <p><em>{{ s.error }}</em></p>
                 {% endif %}
+                </div>
+
+                <!-- Right Player List -->
+                {% if s.online and s.player_list %}
+                <div style="text-align: right; margin-left: 1rem; min-width: 100px;">
+                    <p style="margin: 0 0 0.25rem 0;"><strong>Online:</strong></p>
+                    <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for player in s.player_list %}
+                        <li>{{ player }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
             </div>
-        {% endfor %}
+            {% endfor %}
         </div>
-    </html>
+        </html>
     """
     return render_template_string(html_template, servers=results)
 
