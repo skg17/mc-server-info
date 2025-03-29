@@ -187,6 +187,122 @@ def landing():
     """
     return render_template_string(html_template, servers=results)
 
+@app.route("/widget")
+def homarr_widget():
+    results = []
+    for name, info in SERVERS.items():
+        try:
+            server = JavaServer(info["host"], info["port"])
+            status = server.status()
+
+            icon_data = (
+                status.favicon.replace("data:image/png;base64,", "")
+                if hasattr(status, "favicon") and status.favicon
+                else None
+            )
+            motd = status.description.get("text", "") if isinstance(status.description, dict) else str(status.description)
+            player_list = [p.name for p in status.players.sample] if status.players.sample else []
+
+            results.append({
+                "name": name,
+                "online": True,
+                "motd": motd,
+                "icon": icon_data,
+                "players": f"{status.players.online}/{status.players.max}",
+                "latency": round(status.latency, 2),
+                "player_list": player_list
+            })
+
+        except Exception as e:
+            results.append({
+                "name": name,
+                "online": False,
+                "error": str(e),
+                "player_list": []
+            })
+
+    html_template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Minecraft Widget</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta http-equiv="refresh" content="30">
+      <style>
+        body {
+          margin: 0;
+          font-family: system-ui, sans-serif;
+          background: #1e1e2e;
+          color: #fff;
+          padding: 1rem;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        .card {
+          background: #2a2a3c;
+          border-radius: 1rem;
+          padding: 1rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          box-shadow: 0 0 10px rgba(0,0,0,0.4);
+        }
+        .left {
+          flex: 1;
+        }
+        .right {
+          text-align: right;
+          margin-left: 1rem;
+          min-width: 100px;
+        }
+        .right img {
+          border-radius: 0.25rem;
+          margin-bottom: 4px;
+        }
+        .right .player-name {
+          font-size: 0.85rem;
+          opacity: 0.8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="grid">
+        {% for s in servers %}
+          <div class="card">
+            <div class="left">
+              {% if s.icon %}
+                <img src="data:image/png;base64,{{ s.icon }}" width="32" height="32">
+              {% endif %}
+              <h4 style="margin: 0;">{{ s.name }} {% if s.online %}🟢{% else %}🔴{% endif %}</h4>
+              {% if s.online %}
+                <p style="margin: 0.5em 0;"><strong>MOTD:</strong> {{ s.motd }}</p>
+                <p><strong>Players:</strong> {{ s.players }}</p>
+                <p><strong>Ping:</strong> {{ s.latency }} ms</p>
+              {% else %}
+                <p style="color: red;">Offline</p>
+                <p><em>{{ s.error }}</em></p>
+              {% endif %}
+            </div>
+            {% if s.online and s.player_list %}
+              <div class="right">
+                {% for player in s.player_list %}
+                  <img src="https://minotar.net/helm/{{ player }}/32" alt="{{ player }}" title="{{ player }}">
+                  <div class="player-name">{{ player }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html_template, servers=results)
+
 # Run app on Port 1701
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=1701)
