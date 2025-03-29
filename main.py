@@ -97,45 +97,94 @@ def landing():
 
     # HTML rendering
     html_template = """
-    <html style="font-family: system-ui; background: #1e1e2e; color: #fff; padding: 2em;">
-        <h2>Minecraft Server Dashboard</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem;">
-            {% for s in servers %}
-            <div style="background: #2a2a3c; border-radius: 1rem; padding: 1rem; display: flex; justify-content: space-between; align-items: flex-start;">
-                
-                <!-- Left Info -->
-                <div style="flex: 1;">
-                {% if s.icon %}
-                    <img src="data:image/png;base64,{{ s.icon }}" width="48" height="48">
-                {% endif %}
-                <h3 style="margin: 0;">{{ s.name }} {% if s.online %}🟢{% else %}🔴{% endif %}</h3>
-                {% if s.online %}
-                    <p style="margin: 0.5em 0;"><strong>MOTD:</strong> {{ s.motd }}</p>
-                    <p><strong>Players:</strong> {{ s.players }}</p>
-                    <p><strong>Ping:</strong> {{ s.latency }} ms</p>
-                    <p><a href="/status?server={{ s.name }}" style="color: #80dfff;">View JSON →</a></p>
-                {% else %}
-                    <p style="color: red;">Offline</p>
-                    <p><em>{{ s.error }}</em></p>
-                {% endif %}
-                </div>
-
-                <!-- Right Player List -->
-                {% if s.online and s.player_list %}
-                <div style="text-align: right; margin-left: 1rem; min-width: 100px;">
-                    <p style="margin: 0 0 0.25rem 0;"><strong>Online:</strong></p>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                    {% for player in s.player_list %}
-                        <li>{{ player }}</li>
-                    {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <title>Minecraft Dashboard</title>
+    <meta http-equiv="refresh" content="30"> <!-- Auto-refresh every 30 seconds -->
+    <style>
+        body {
+        font-family: system-ui, sans-serif;
+        background: #1e1e2e;
+        color: #fff;
+        padding: 2rem;
+        }
+        h2 {
+        margin-bottom: 1rem;
+        }
+        .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 1.5rem;
+        }
+        .card {
+        background: #2a2a3c;
+        border-radius: 1rem;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        box-shadow: 0 0 10px rgba(0,0,0,0.4);
+        }
+        .left {
+        flex: 1;
+        }
+        .right {
+        text-align: right;
+        margin-left: 1rem;
+        min-width: 120px;
+        }
+        .right img {
+        border-radius: 0.25rem;
+        margin-bottom: 4px;
+        }
+        .right .player-name {
+        font-size: 0.85rem;
+        opacity: 0.8;
+        }
+        a {
+        color: #80dfff;
+        text-decoration: none;
+        }
+    </style>
+    </head>
+    <body>
+    <h2>Minecraft Server Dashboard</h2>
+    <div class="grid">
+        {% for s in servers %}
+        <div class="card">
+            <!-- Left Panel -->
+            <div class="left">
+            {% if s.icon %}
+                <img src="data:image/png;base64,{{ s.icon }}" width="48" height="48">
+            {% endif %}
+            <h3 style="margin: 0;">{{ s.name }} {% if s.online %}🟢{% else %}🔴{% endif %}</h3>
+            {% if s.online %}
+                <p><strong>MOTD:</strong> {{ s.motd }}</p>
+                <p><strong>Players:</strong> {{ s.players }}</p>
+                <p><strong>Ping:</strong> {{ s.latency }} ms</p>
+                <p><a href="/status?server={{ s.name }}">View JSON →</a></p>
+            {% else %}
+                <p style="color: red;">Offline</p>
+                <p><em>{{ s.error }}</em></p>
+            {% endif %}
             </div>
-            {% endfor %}
+
+            <!-- Right Panel: Player Avatars -->
+            {% if s.online and s.player_list %}
+            <div class="right">
+                {% for player in s.player_list %}
+                <img src="https://minotar.net/helm/{{ player }}/32" alt="{{ player }}" title="{{ player }}">
+                <div class="player-name">{{ player }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
-        </html>
+        {% endfor %}
+    </div>
+    </body>
+    </html>
     """
     return render_template_string(html_template, servers=results)
 
