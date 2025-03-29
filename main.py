@@ -164,7 +164,6 @@ def landing():
                 <p><strong>MOTD:</strong> {{ s.motd }}</p>
                 <p><strong>Players:</strong> {{ s.players }}</p>
                 <p><strong>Ping:</strong> {{ s.latency }} ms</p>
-                <p><a href="/status?server={{ s.name }}">View JSON →</a></p>
             {% else %}
                 <p style="color: red;">Offline</p>
                 <p><em>{{ s.error }}</em></p>
