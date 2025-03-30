@@ -315,7 +315,7 @@ def list_servers():
     return jsonify(list(SERVERS.keys()))
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 TRACK_FILE = "/data/tracked_servers.json"
 tracked_servers = {}
 last_status = {
@@ -429,7 +429,7 @@ async def monitor_server(server_name: str):
                 await asyncio.sleep(30)
                 continue
 
-            channel = bot.get_channel(tracked_servers[server_name])
+            channel = CHANNEL_ID
             if not channel:
                 await asyncio.sleep(30)
                 continue
