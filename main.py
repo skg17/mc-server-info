@@ -307,6 +307,10 @@ def homarr_widget():
     """
     return render_template_string(html_template, servers=results)
 
+@app.route("/servers")
+def list_servers():
+    return jsonify(list(SERVERS.keys()))
+
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 API_URL = f"http://localhost:1701/status?server=VanillaBusters"
 
@@ -345,6 +349,22 @@ async def mcinfo(ctx, server_name: str = "main"):
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching `{server_name}` status: `{e}`")
+
+@bot.command(name="servers")
+async def list_servers_command(ctx):
+    try:
+        res = requests.get("http://localhost:1701/servers")
+        servers = res.json()
+
+        if not servers:
+            await ctx.send("⚠️ No servers are currently configured.")
+            return
+
+        msg = "🗂️ **Available Servers:**\n" + "\n".join(f"- `{s}`" for s in servers)
+        await ctx.send(msg)
+
+    except Exception as e:
+        await ctx.send(f"⚠️ Could not fetch server list: `{e}`")
 
 def start_discord_bot():
     bot.run(DISCORD_TOKEN)
