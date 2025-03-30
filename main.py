@@ -6,6 +6,7 @@ from discord.ext import commands
 import requests
 import discord
 import asyncio
+import json
 
 app = Flask(__name__)
 
@@ -21,6 +22,7 @@ def load_servers_from_env():
     return servers
 
 SERVERS = load_servers_from_env()
+TRACK_FILE = "tracked_servers.json"
 
 # Return JavaServer object for IP:Port pair value from Docker Env
 def get_server(name):
@@ -314,15 +316,37 @@ def list_servers():
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
+TRACK_FILE = "/data/tracked_servers.json"
+tracked_servers = {}
+last_status = {
+    "online": None,
+    "players": set()
+}
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-last_status = {
-    "online": None,
-    "players": set()
-}
+def load_tracked_servers():
+    global tracked_servers
+    if os.path.exists(TRACK_FILE):
+        try:
+            with open(TRACK_FILE, "r") as f:
+                tracked_servers.update(json.load(f))
+                print(f"✅ Loaded tracked_servers: {tracked_servers}")
+        except Exception as e:
+            print(f"⚠️ Failed to load tracked servers: {e}")
+            tracked_servers = {}
+    else:
+        tracked_servers = {}
+
+def save_tracked_servers():
+    try:
+        with open(TRACK_FILE, "w") as f:
+            json.dump(tracked_servers, f)
+            print(f"💾 Saved tracked servers")
+    except Exception as e:
+        print(f"⚠️ Failed to save tracked servers: {e}")
 
 @bot.command(name="mcinfo")
 async def mcinfo(ctx, server_name: str = "main"):
@@ -372,54 +396,100 @@ async def list_servers_command(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Could not fetch server list: `{e}`")
 
+@bot.command(name="track")
+async def track_server(ctx, mode: str, server_name: str):
+    mode = mode.lower()
+    server_name = server_name.lower()
+
+    if mode not in ("on", "off"):
+        await ctx.send("⚠️ Usage: `!track on|off server_name`")
+        return
+
+    if mode == "on":
+        tracked_servers[server_name] = ctx.channel.id
+        save_tracked_servers()
+        await ctx.send(f"🔔 Now tracking `{server_name}` in <#{ctx.channel.id}>.")
+    elif mode == "off":
+        if server_name in tracked_servers:
+            del tracked_servers[server_name]
+            save_tracked_servers()
+            await ctx.send(f"🔕 Stopped tracking `{server_name}`.")
+        else:
+            await ctx.send(f"⚠️ `{server_name}` is not currently being tracked.")
+
 def start_discord_bot():
     bot.run(DISCORD_TOKEN)
 
-async def monitor_server(server_name: str, channel_id: int):
+async def monitor_server(server_name: str):
     await bot.wait_until_ready()
-    channel = bot.get_channel(channel_id)
-
-    global last_status
 
     while True:
         try:
+            if server_name not in tracked_servers:
+                await asyncio.sleep(30)
+                continue
+
+            channel = bot.get_channel(tracked_servers[server_name])
+            if not channel:
+                await asyncio.sleep(30)
+                continue
+
             res = requests.get(f"http://localhost:1701/status?server={server_name}")
             data = res.json()
 
+            # Server Online
             if data["online"]:
-                if last_status["online"] is False:
+                if last_status[server_name]["online"] is False:
                     await channel.send(f"🟢 `{server_name}` is back online!")
 
-                current_players = {p for p in data["players"].get("list", [])}
+                current_players = set(data["players"].get("list", []))
 
-                # Player join
-                joined = current_players - last_status["players"]
+                # Join
+                joined = current_players - last_status[server_name]["players"]
                 for player in joined:
-                    await channel.send(f"✅ `{player}` joined `{server_name}`")
+                    await channel.send(
+                        f"✅ **{player} joined `{server_name}`**\n"
+                        f"https://minotar.net/avatar/{player}/50.png"
+                    )
 
-                # Player leave
-                left = last_status["players"] - current_players
+                # Leave
+                left = last_status[server_name]["players"] - current_players
                 for player in left:
-                    await channel.send(f"❌ `{player}` left `{server_name}`")
+                    await channel.send(
+                        f"❌ **{player} left `{server_name}`**\n"
+                        f"https://minotar.net/avatar/{player}/50.png"
+                    )
 
-                last_status["players"] = current_players
-                last_status["online"] = True
+                last_status[server_name]["players"] = current_players
+                last_status[server_name]["online"] = True
 
             else:
-                if last_status["online"] is not False:
+                if last_status[server_name]["online"] is not False:
                     await channel.send(f"🔴 `{server_name}` is now offline.")
-                last_status["online"] = False
-                last_status["players"] = set()
+                last_status[server_name]["online"] = False
+                last_status[server_name]["players"] = set()
 
         except Exception as e:
-            print(f"[Monitor] Error checking server: {e}")
+            print(f"❌ Error monitoring {server_name}: {e}")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(30)
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot connected as {bot.user}")
-    bot.loop.create_task(monitor_server("VanillaBusters", CHANNEL_ID))
+    load_tracked_servers()
+
+    try:
+        response = requests.get("http://localhost:1701/servers")
+        server_list = response.json()
+        print(f"🧠 Loaded servers from API: {server_list}")
+    except Exception as e:
+        print(f"❌ Failed to fetch server list: {e}")
+        return
+
+    for server in server_list:
+        last_status[server] = { "online": None, "players": set() }
+        bot.loop.create_task(monitor_server(server))
 
 # Run both Flask and Discord bot
 if __name__ == "__main__":
