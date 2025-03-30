@@ -41,8 +41,8 @@ def status():
 
         # Get server icon if applicable
         icon_data = (
-            status.favicon.replace("data:image/png;base64,", "")
-            if hasattr(status, "favicon") and status.favicon
+            status.icon.replace("data:image/png;base64,", "")
+            if hasattr(status, "icon") and status.icon
             else None
         )
 
@@ -75,8 +75,8 @@ def landing():
             status = server.status()
 
             icon_data = (
-                status.favicon.replace("data:image/png;base64,", "")
-                if hasattr(status, "favicon") and status.favicon
+                status.icon.replace("data:image/png;base64,", "")
+                if hasattr(status, "icon") and status.icon
                 else None
             )
 
@@ -200,8 +200,8 @@ def homarr_widget():
             status = server.status()
 
             icon_data = (
-                status.favicon.replace("data:image/png;base64,", "")
-                if hasattr(status, "favicon") and status.favicon
+                status.icon.replace("data:image/png;base64,", "")
+                if hasattr(status, "icon") and status.icon
                 else None
             )
             motd = status.description.get("text", "") if isinstance(status.description, dict) else str(status.description)
@@ -315,12 +315,15 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.command(name="mcinfo")
-async def mcstatus(ctx):
+async def mcinfo(ctx, server_name: str = "main"):
+    flask_url = f"http://localhost:1701/status?server={server_name}"
+
     try:
-        response = requests.get(API_URL)
+        response = requests.get(flask_url)
         data = response.json()
+
         if not data.get("online"):
-            await ctx.send("🔴 Server is currently offline.")
+            await ctx.send(f"🔴 `{server_name}` is currently offline.")
             return
 
         players = data["players"]
@@ -328,18 +331,20 @@ async def mcstatus(ctx):
         latency = data.get("latency_ms", "?")
 
         msg = (
-            f"🟢 **Server Online**\n"
+            f"🟢 **{server_name} is online**\n"
             f"**MOTD**: {motd}\n"
             f"**Players**: {players['online']}/{players['max']}\n"
             f"**Ping**: {latency} ms"
         )
 
         if players.get("list"):
-            msg += f"\n**Online Players**: {', '.join(players['list'])}"
+            names = ', '.join(players["list"])
+            msg += f"\n**Online Players**: {names}"
 
         await ctx.send(msg)
+
     except Exception as e:
-        await ctx.send(f"⚠️ Error: `{e}`")
+        await ctx.send(f"⚠️ Error fetching `{server_name}` status: `{e}`")
 
 def start_discord_bot():
     bot.run(DISCORD_TOKEN)
