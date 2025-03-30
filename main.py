@@ -359,25 +359,33 @@ async def mcinfo(ctx, server_name: str = "main"):
         data = response.json()
 
         if not data.get("online"):
-            await ctx.send(f"🔴 `{server_name}` is currently offline.")
+            embed = discord.Embed(
+                title=f"🔴 `{server_name}` is offline",
+                description="The server is currently unreachable.",
+                color=0xED4245
+            )
+            embed.timestamp = discord.utils.utcnow()
+            await ctx.send(embed=embed)
             return
 
         players = data["players"]
         motd = data.get("motd", "N/A")
         latency = data.get("latency_ms", "?")
 
-        msg = (
-            f"🟢 **{server_name} is online**\n"
-            f"**MOTD**: {motd}\n"
-            f"**Players**: {players['online']}/{players['max']}\n"
-            f"**Ping**: {latency} ms"
+        embed = discord.Embed(
+            title=f"🟢 {server_name} is online",
+            description=f"**MOTD**: {motd}",
+            color=0x57F287
         )
+        embed.add_field(name="Players", value=f"{players['online']} / {players['max']}", inline=True)
+        embed.add_field(name="Ping", value=f"{latency} ms", inline=True)
 
         if players.get("list"):
-            names = ', '.join(players["list"])
-            msg += f"\n**Online Players**: {names}"
+            embed.add_field(name="Online Players", value=", ".join(players["list"]), inline=False)
 
-        await ctx.send(msg)
+        embed.set_footer(text="Minecraft Server Tracker")
+        embed.timestamp = discord.utils.utcnow()
+        await ctx.send(embed=embed)
 
     except Exception as e:
         await ctx.send(f"⚠️ Error fetching `{server_name}` status: `{e}`")
@@ -459,11 +467,6 @@ async def monitor_server(server_name: str):
 
                 current_players = set(data["players"].get("list", []))
 
-                print(f"[{server_name}] Current players: {current_players}")
-                print(f"[{server_name}] Previous players: {last_status[server_name]['players']}")
-                print(f"[{server_name}] Joined: {joined}")
-                print(f"[{server_name}] Left: {left}")
-
                 # Join
                 joined = current_players - last_status[server_name]["players"]
                 for player in joined:
@@ -492,6 +495,11 @@ async def monitor_server(server_name: str):
 
                 last_status[server_name]["players"] = current_players
                 last_status[server_name]["online"] = True
+
+                print(f"[{server_name}] Current players: {current_players}")
+                print(f"[{server_name}] Previous players: {last_status[server_name]['players']}")
+                print(f"[{server_name}] Joined: {joined}")
+                print(f"[{server_name}] Left: {left}")
 
             else:
                 if last_status[server_name]["online"] is not False:
