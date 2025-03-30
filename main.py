@@ -311,6 +311,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 API_URL = f"http://localhost:1701/status?server=VanillaBusters"
 
 intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.command(name="mcinfo")
