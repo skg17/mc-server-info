@@ -1,5 +1,7 @@
 import os
-from flask import Flask, jsonify, request, render_template_string
+import base64
+import io
+from flask import Flask, jsonify, request, render_template_string, send_file
 from mcstatus import JavaServer
 from threading import Thread
 from discord.ext import commands
@@ -314,6 +316,24 @@ def homarr_widget():
 def list_servers():
     return jsonify(list(SERVERS.keys()))
 
+@app.route("/icon/<server_name>")
+def get_icon(server_name):
+    server = SERVERS.get(server_name)
+    if not server:
+        return "", 204  # No Content
+
+    try:
+        status = JavaServer.lookup(server).status()
+        icon_data = getattr(status, "icon", None) or getattr(status, "favicon", None)
+        if icon_data:
+            base64_data = icon_data.replace("data:image/png;base64,", "")
+            image_data = base64.b64decode(base64_data)
+            return send_file(io.BytesIO(image_data), mimetype="image/png")
+    except Exception as e:
+        print(f"[ICON ERROR] {server_name}: {e}")
+
+    return "", 204  # Gracefully do nothing if no icon or error
+
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 TRACK_FILE = "/data/tracked_servers.json"
@@ -422,6 +442,7 @@ def start_discord_bot():
 
 async def monitor_server(server_name: str):
     await bot.wait_until_ready()
+    server_icon_url = f"http://localhost:1701/icon/{server_name}"
 
     while True:
         try:
@@ -429,7 +450,7 @@ async def monitor_server(server_name: str):
                 await asyncio.sleep(30)
                 continue
 
-            channel = CHANNEL_ID
+            channel = bot.get_channel(tracked_servers[server_name])
             if not channel:
                 await asyncio.sleep(30)
                 continue
@@ -440,7 +461,15 @@ async def monitor_server(server_name: str):
             # Server Online
             if data["online"]:
                 if last_status[server_name]["online"] is False:
-                    await channel.send(f"🟢 `{server_name}` is back online!")
+                    embed = discord.Embed(
+                        title=f"🟢 `{server_name}` is back online!",
+                        description="Ready to play 🎮",
+                        color=0x57F287
+                    )
+                    embed.set_thumbnail(url=server_icon_url)
+                    embed.timestamp = discord.utils.utcnow()
+                    await channel.send(embed=embed)
+
 
                 current_players = set(data["players"].get("list", []))
 
@@ -450,12 +479,11 @@ async def monitor_server(server_name: str):
                     embed = discord.Embed(
                         title=f"📥 {player} joined",
                         description=f"🗂️ Server: `{server_name}`",
-                        color=0x57F287  # Green
+                        color=0x57F287
                     )
                     embed.set_thumbnail(url=f"https://minotar.net/avatar/{player}/64.png")
-                    embed.set_footer(text="Minecraft Server Tracker")
+                    embed.set_footer(text="Minecraft Server Tracker", icon_url=server_icon_url)
                     embed.timestamp = discord.utils.utcnow()
-
                     await channel.send(embed=embed)
 
                 # Leave
@@ -464,12 +492,11 @@ async def monitor_server(server_name: str):
                     embed = discord.Embed(
                         title=f"📤 {player} left",
                         description=f"🗂️ Server: `{server_name}`",
-                        color=0xED4245  # Red
+                        color=0xED4245
                     )
                     embed.set_thumbnail(url=f"https://minotar.net/avatar/{player}/64.png")
-                    embed.set_footer(text="Minecraft Server Tracker")
+                    embed.set_footer(text="Minecraft Server Tracker", icon_url=server_icon_url)
                     embed.timestamp = discord.utils.utcnow()
-
                     await channel.send(embed=embed)
 
                 last_status[server_name]["players"] = current_players
@@ -477,7 +504,15 @@ async def monitor_server(server_name: str):
 
             else:
                 if last_status[server_name]["online"] is not False:
-                    await channel.send(f"🔴 `{server_name}` is now offline.")
+                    embed = discord.Embed(
+                        title=f"🔴 `{server_name}` is now offline.",
+                        description="The server is currently unreachable.",
+                        color=0xED4245
+                    )
+                    embed.set_thumbnail(url=server_icon_url)
+                    embed.timestamp = discord.utils.utcnow()
+                    await channel.send(embed=embed)
+                    
                 last_status[server_name]["online"] = False
                 last_status[server_name]["players"] = set()
 
