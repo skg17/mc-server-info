@@ -6,7 +6,6 @@ services:
       - "1701:1701"
     volumes:
       - hostPath:/data
-    working_dir: /data
     environment:
       - SERVER_vanilla=192.168.1.123:25565
       - DISCORD_TOKEN=INSERT_TOKEN_HERE

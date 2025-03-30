@@ -406,9 +406,9 @@ async def track_server(ctx, mode: str, server_name: str):
         return
 
     if mode == "on":
-        tracked_servers[server_name] = ctx.channel.id
+        tracked_servers[server_name] = CHANNEL_ID
         save_tracked_servers()
-        await ctx.send(f"🔔 Now tracking `{server_name}` in <#{ctx.channel.id}>.")
+        await ctx.send(f"🔔 Now tracking `{server_name}` in <#{CHANNEL_ID}>.")
     elif mode == "off":
         if server_name in tracked_servers:
             del tracked_servers[server_name]
@@ -447,18 +447,30 @@ async def monitor_server(server_name: str):
                 # Join
                 joined = current_players - last_status[server_name]["players"]
                 for player in joined:
-                    await channel.send(
-                        f"✅ **{player} joined `{server_name}`**\n"
-                        f"https://minotar.net/avatar/{player}/50.png"
+                    embed = discord.Embed(
+                        title=f"📥 {player} joined",
+                        description=f"🗂️ Server: `{server_name}`",
+                        color=0x57F287  # Green
                     )
+                    embed.set_thumbnail(url=f"https://minotar.net/avatar/{player}/64.png")
+                    embed.set_footer(text="Minecraft Server Tracker")
+                    embed.timestamp = discord.utils.utcnow()
+
+                    await channel.send(embed=embed)
 
                 # Leave
                 left = last_status[server_name]["players"] - current_players
                 for player in left:
-                    await channel.send(
-                        f"❌ **{player} left `{server_name}`**\n"
-                        f"https://minotar.net/avatar/{player}/50.png"
+                    embed = discord.Embed(
+                        title=f"📤 {player} left",
+                        description=f"🗂️ Server: `{server_name}`",
+                        color=0xED4245  # Red
                     )
+                    embed.set_thumbnail(url=f"https://minotar.net/avatar/{player}/64.png")
+                    embed.set_footer(text="Minecraft Server Tracker")
+                    embed.timestamp = discord.utils.utcnow()
+
+                    await channel.send(embed=embed)
 
                 last_status[server_name]["players"] = current_players
                 last_status[server_name]["online"] = True
