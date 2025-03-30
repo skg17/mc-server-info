@@ -391,20 +391,40 @@ async def mcinfo(ctx, server_name: str = "main"):
         await ctx.send(f"⚠️ Error fetching `{server_name}` status: `{e}`")
 
 @bot.command(name="servers")
-async def list_servers_command(ctx):
+async def servers(ctx):
     try:
         res = requests.get("http://localhost:1701/servers")
-        servers = res.json()
-
-        if not servers:
-            await ctx.send("⚠️ No servers are currently configured.")
-            return
-
-        msg = "🗂️ **Available Servers:**\n" + "\n".join(f"- `{s}`" for s in servers)
-        await ctx.send(msg)
-
+        server_list = res.json()
     except Exception as e:
-        await ctx.send(f"⚠️ Could not fetch server list: `{e}`")
+        await ctx.send(f"⚠️ Error fetching server list: `{e}`")
+        return
+
+    embed = discord.Embed(
+        title="📡 Server Status Overview",
+        description="Here are all tracked servers:",
+        color=0x5865F2
+    )
+    embed.timestamp = discord.utils.utcnow()
+
+    for server_name in server_list:
+        try:
+            status = requests.get(f"http://localhost:1701/status?server={server_name}", timeout=3).json()
+
+            if status.get("online"):
+                players = status["players"]
+                value = (
+                    f"🟢 **Online**\n"
+                    f"👥 {players['online']}/{players['max']} players\n"
+                    f"🏓 {status.get('latency_ms', '?')} ms"
+                )
+            else:
+                value = "🔴 Offline"
+        except Exception as e:
+            value = f"⚠️ Error: {e}"
+
+        embed.add_field(name=f"{server_name}", value=value, inline=False)
+
+    await ctx.send(embed=embed)
 
 @bot.command(name="track")
 async def track_server(ctx, mode: str, server_name: str):
