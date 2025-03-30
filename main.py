@@ -1,6 +1,10 @@
 import os
 from flask import Flask, jsonify, request, render_template_string
 from mcstatus import JavaServer
+from threading import Thread
+from discord.ext import commands
+import requests
+import discord
 
 app = Flask(__name__)
 
@@ -303,6 +307,43 @@ def homarr_widget():
     """
     return render_template_string(html_template, servers=results)
 
-# Run app on Port 1701
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+API_URL = f"http://localhost:1701/status?server=VanillaBusters"
+
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.command(name="mcinfo")
+async def mcstatus(ctx):
+    try:
+        response = requests.get(API_URL)
+        data = response.json()
+        if not data.get("online"):
+            await ctx.send("🔴 Server is currently offline.")
+            return
+
+        players = data["players"]
+        motd = data.get("motd", "N/A")
+        latency = data.get("latency_ms", "?")
+
+        msg = (
+            f"🟢 **Server Online**\n"
+            f"**MOTD**: {motd}\n"
+            f"**Players**: {players['online']}/{players['max']}\n"
+            f"**Ping**: {latency} ms"
+        )
+
+        if players.get("list"):
+            msg += f"\n**Online Players**: {', '.join(players['list'])}"
+
+        await ctx.send(msg)
+    except Exception as e:
+        await ctx.send(f"⚠️ Error: `{e}`")
+
+def start_discord_bot():
+    bot.run(DISCORD_TOKEN)
+
+# Run both Flask and Discord bot
 if __name__ == "__main__":
+    Thread(target=start_discord_bot).start()
     app.run(host="0.0.0.0", port=1701)

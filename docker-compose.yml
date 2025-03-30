@@ -6,4 +6,5 @@ services:
       - "1701:1701"
     environment:
       - SERVER_vanilla=192.168.1.123:25565
+      - DISCORD_TOKEN=INSERT_TOKEN_HERE
     restart: unless-stopped
