@@ -5,6 +5,7 @@ from threading import Thread
 from discord.ext import commands
 import requests
 import discord
+import asyncio
 
 app = Flask(__name__)
 
@@ -312,11 +313,16 @@ def list_servers():
     return jsonify(list(SERVERS.keys()))
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-API_URL = f"http://localhost:1701/status?server=VanillaBusters"
+CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+last_status = {
+    "online": None,
+    "players": set()
+}
 
 @bot.command(name="mcinfo")
 async def mcinfo(ctx, server_name: str = "main"):
@@ -368,6 +374,52 @@ async def list_servers_command(ctx):
 
 def start_discord_bot():
     bot.run(DISCORD_TOKEN)
+
+async def monitor_server(server_name: str, channel_id: int):
+    await bot.wait_until_ready()
+    channel = bot.get_channel(channel_id)
+
+    global last_status
+
+    while True:
+        try:
+            res = requests.get(f"http://localhost:1701/status?server={server_name}")
+            data = res.json()
+
+            if data["online"]:
+                if last_status["online"] is False:
+                    await channel.send(f"🟢 `{server_name}` is back online!")
+
+                current_players = {p for p in data["players"].get("list", [])}
+
+                # Player join
+                joined = current_players - last_status["players"]
+                for player in joined:
+                    await channel.send(f"✅ `{player}` joined `{server_name}`")
+
+                # Player leave
+                left = last_status["players"] - current_players
+                for player in left:
+                    await channel.send(f"❌ `{player}` left `{server_name}`")
+
+                last_status["players"] = current_players
+                last_status["online"] = True
+
+            else:
+                if last_status["online"] is not False:
+                    await channel.send(f"🔴 `{server_name}` is now offline.")
+                last_status["online"] = False
+                last_status["players"] = set()
+
+        except Exception as e:
+            print(f"[Monitor] Error checking server: {e}")
+
+        await asyncio.sleep(60)
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot connected as {bot.user}")
+    bot.loop.create_task(monitor_server("VanillaBusters", CHANNEL_ID))
 
 # Run both Flask and Discord bot
 if __name__ == "__main__":

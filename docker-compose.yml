@@ -7,4 +7,5 @@ services:
     environment:
       - SERVER_vanilla=192.168.1.123:25565
       - DISCORD_TOKEN=INSERT_TOKEN_HERE
+      - CHANNEL_ID=INSERT_ID_HERE
     restart: unless-stopped
