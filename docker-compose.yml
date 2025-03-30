@@ -1,13 +1,15 @@
 version: "3.8"
 services:
   mc-server-info:
-    build: .
+    image: sah17/mc-server-info:latest
+    container_name: mc-server-info
     ports:
       - "1701:1701"
     volumes:
-      - hostPath:/data
+      - /DATA/AppData/mc-server-info/data:/data
     environment:
-      - SERVER_vanilla=192.168.1.123:25565
-      - DISCORD_TOKEN=INSERT_TOKEN_HERE
-      - CHANNEL_ID=INSERT_ID_HERE
+      - SERVER_vanillabusters=example.com:25565
+      - SERVER_roguebusters=example.org:25565
+      - DISCORD_TOKEN=your_token
+      - CHANNEL_ID=your_channel_id
     restart: unless-stopped
